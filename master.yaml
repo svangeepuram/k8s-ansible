@@ -1,0 +1,58 @@
+- hosts: master
+  become: yes
+  tasks:
+    - name: auto complete
+      shell: echo "source <(kubectl completion bash)" >> $HOME/.bashrc
+      args:
+        chdir: $HOME
+        creates: $HOME/.bashrc
+    - name: swapoff
+      shell: swapoff -a >> swapoff.txt
+      args:
+        chdir: $HOME
+        creates: swapoff.txt
+    
+    - name: initialize the cluster
+      shell: kubeadm init --pod-network-cidr=10.244.0.0/16 >> cluster_initialized.txt
+      args:
+        chdir: $HOME
+        creates: cluster_initialized.txt
+
+    - name: create .kube directory
+      become: yes
+      become_user: ubuntu
+      file:
+        path: $HOME/.kube
+        state: directory
+        mode: 0755
+
+    - name: copy admin.conf to user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+
+    - name: rbac setup
+      become: yes
+      become_user: ubuntu
+      shell: kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml >> rbac_setup.txt
+      args:
+        chdir: $HOME
+        creates: rbac_setup.txt
+    
+    - name: calico setup
+      become: yes
+      become_user: ubuntu
+      shell: kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml >> calico_setup.txt
+      args:
+        chdir: $HOME
+        creates: calico_setup.txt
+    - name: ingress setup
+      become: yes
+      become_user: ubuntu
+      shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.41.2/deploy/static/provider/do/deploy.yaml >> ingress_setup.txt
+      args:
+        chdir: $HOME
+        creates: ingress_setup.txt
+
